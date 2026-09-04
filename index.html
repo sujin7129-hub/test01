@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>단어장 업로드 학습 앱</title>
+  <link rel="stylesheet" href="./style.css" />
+  <!-- XLSX 업로드 지원용. 인터넷이 없는 환경에서는 CSV만 동작합니다. -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+  <header class="app-header">
+    <div>
+      <h1>📚 단어장 업로드 학습 앱</h1>
+      <p>엑셀/CSV 파일을 업로드해 플래시카드, 퀴즈, 오답 복습으로 공부하세요.</p>
+    </div>
+    <div class="header-actions">
+      <button id="btnExportAll" class="ghost">전체 백업</button>
+      <button id="btnClearAll" class="danger ghost">전체 삭제</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <aside class="sidebar">
+      <section class="panel">
+        <h2>단어장</h2>
+        <button id="btnShowUpload" class="primary full">+ 단어장 업로드</button>
+        <button id="btnSample" class="ghost full">샘플 CSV 다운로드</button>
+        <div id="deckList" class="deck-list"></div>
+      </section>
+    </aside>
+
+    <section class="content">
+      <section id="uploadView" class="view">
+        <div class="panel">
+          <h2>1. 파일 업로드</h2>
+          <p class="muted">지원 형식: CSV, XLSX. 필수 컬럼은 <b>어휘/표현</b>, <b>뜻</b>입니다. 품사는 선택입니다.</p>
+          <label class="dropzone" id="dropzone">
+            <input id="fileInput" type="file" accept=".csv,.xlsx,.xls" />
+            <span>파일을 선택하거나 이곳에 드래그하세요.</span>
+          </label>
+          <div id="uploadStatus" class="status"></div>
+        </div>
+
+        <div id="mappingPanel" class="panel hidden">
+          <h2>2. 컬럼 매핑</h2>
+          <div class="grid-3">
+            <label>어휘/표현
+              <select id="mapTerm"></select>
+            </label>
+            <label>품사
+              <select id="mapPos"></select>
+            </label>
+            <label>뜻
+              <select id="mapMeaning"></select>
+            </label>
+          </div>
+          <label>단어장 이름
+            <input id="deckTitle" type="text" placeholder="예: EBS 영어 어휘" />
+          </label>
+          <div class="actions">
+            <button id="btnCreateDeck" class="primary">단어장 생성</button>
+            <button id="btnCancelImport" class="ghost">취소</button>
+          </div>
+        </div>
+
+        <div id="previewPanel" class="panel hidden">
+          <h2>3. 미리보기</h2>
+          <div class="table-wrap">
+            <table id="previewTable"></table>
+          </div>
+        </div>
+      </section>
+
+      <section id="deckView" class="view hidden">
+        <div class="panel deck-summary">
+          <div>
+            <h2 id="deckName">단어장</h2>
+            <p id="deckMeta" class="muted"></p>
+          </div>
+          <div class="actions wrap">
+            <button id="btnFlashcards" class="primary">플래시카드</button>
+            <button id="btnQuiz" class="primary">퀴즈</button>
+            <button id="btnWrong" class="ghost">오답 노트</button>
+            <button id="btnExportDeck" class="ghost">CSV 내보내기</button>
+            <button id="btnDeleteDeck" class="danger ghost">삭제</button>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h3>학습 통계</h3>
+          <div id="statsCards" class="stats"></div>
+        </div>
+
+        <div class="panel">
+          <div class="toolbar">
+            <input id="searchInput" type="search" placeholder="단어/뜻/품사 검색" />
+            <select id="posFilter">
+              <option value="">전체 품사</option>
+            </select>
+            <select id="statusFilter">
+              <option value="">전체 상태</option>
+              <option value="미학습">미학습</option>
+              <option value="학습 중">학습 중</option>
+              <option value="암기 완료">암기 완료</option>
+              <option value="오답">오답</option>
+            </select>
+          </div>
+          <div class="table-wrap">
+            <table id="wordTable"></table>
+          </div>
+        </div>
+      </section>
+
+      <section id="studyView" class="view hidden">
+        <div class="panel">
+          <div class="study-header">
+            <button id="btnBackToDeck" class="ghost">← 단어장으로</button>
+            <div id="studyProgress" class="muted"></div>
+          </div>
+
+          <div id="flashcardMode" class="hidden">
+            <div id="flashcard" class="flashcard">
+              <div id="cardFront" class="card-side"></div>
+              <div id="cardBack" class="card-side hidden"></div>
+            </div>
+            <p class="muted center">카드를 클릭하면 뜻이 보입니다.</p>
+            <div class="actions center">
+              <button data-grade="know" class="success">알아요</button>
+              <button data-grade="unclear" class="warning">헷갈려요</button>
+              <button data-grade="dontknow" class="danger">몰라요</button>
+            </div>
+          </div>
+
+          <div id="quizMode" class="hidden">
+            <div class="quiz-card">
+              <p id="quizType" class="badge"></p>
+              <h2 id="quizQuestion"></h2>
+              <div id="quizChoices" class="choices"></div>
+              <div id="quizFeedback"></div>
+              <button id="btnNextQuiz" class="primary hidden">다음 문제</button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <template id="emptyDeckTemplate">
+    <div class="empty">
+      <h2>아직 단어장이 없습니다.</h2>
+      <p>왼쪽의 “단어장 업로드” 버튼으로 CSV/XLSX 파일을 업로드하세요.</p>
+    </div>
+  </template>
+
+  <script src="./app.js"></script>
+</body>
+</html>
